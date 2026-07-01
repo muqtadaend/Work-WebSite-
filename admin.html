@@ -9,14 +9,14 @@
     <style>
         body { background-color: #f4f6f9; padding-top: 30px; padding-bottom: 60px; }
         .dynamic-step-item { background-color: #fff; border: 1px solid #ced4da; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        .admin-card-list { max-height: 75vh; overflow-y: auto; }
+        .admin-card-list { max-height: 70vh; overflow-y: auto; }
     </style>
 </head>
 <body>
 
     <div class="container-fluid px-4">
         <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
-            <h3 class="text-danger fw-bold m-0"><i class="fas fa-user-shield me-2"></i>Control Panel Dashboard (Protected)</h3>
+            <h3 class="text-danger fw-bold m-0"><i class="fas fa-user-shield me-2"></i>Control Panel Dashboard (Cloud Firebase)</h3>
             <a href="blog.html" class="btn btn-dark fw-bold"><i class="fas fa-globe me-1"></i> Ke Halaman Utama Blog</a>
         </div>
 
@@ -71,17 +71,18 @@
                             <textarea class="form-control" id="formKesimpulan" rows="2" placeholder="Kesimpulan akhir..." required></textarea>
                         </div>
 
-                        <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Publish & Simpan <i class="fas fa-cloud-upload-alt ms-1"></i></button>
+                        <button type="submit" id="submitBtn" class="btn btn-danger w-100 fw-bold py-2">Publish ke Cloud Database <i class="fas fa-cloud-upload-alt ms-1"></i></button>
                     </form>
                 </div>
             </div>
 
             <div class="col-xl-7 col-lg-6">
                 <div class="card shadow border-0 p-4">
-                    <h4 class="mb-3 text-dark fw-bold"><i class="fas fa-folder-open me-2 text-warning"></i>Daftar Laporan Ter-upload</h4>
-                    <p class="text-muted small">Kamu bisa memantau data yang sudah masuk atau menghapusnya jika terjadi salah input data.</p>
+                    <h4 class="mb-3 text-dark fw-bold"><i class="fas fa-folder-open me-2 text-warning"></i>Daftar Laporan di Cloud Server</h4>
+                    <p class="text-muted small">Data di bawah ini tersimpan secara live di Cloud. Menghapus data di sini akan langsung menghilangkannya dari device dosen secara realtime.</p>
                     <div id="adminReportContainer" class="admin-card-list row g-3">
-                        </div>
+                        <div class="text-center text-muted py-5"><div class="spinner-border text-danger" role="status"></div><p class="mt-2">Menghubungkan ke Cloud Database...</p></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -89,20 +90,20 @@
 
     <script>
         // ========================================================
-        // 🔐 SISTEM KEAMANAN VERIFIKASI PASSWORD ADMIN (CARA 2)
+        // 🔐 SISTEM KEAMANAN PASSWORD ADMIN
         // ========================================================
-        // Kamu bebas mengganti kata "adminInformatika123" dengan password rahasiamu sendiri
-        const PASSWORD_RAHASIA_ADMIN = "akungame12,."; 
-        
-        // Meminta input dari user sesaat setelah halaman mencoba dimuat
+        const PASSWORD_RAHASIA_ADMIN = "adminInformatika123"; 
         let verifikasiUser = prompt("Akses Terbatas! Masukkan Password Kode Verifikasi Admin:");
-
         if (verifikasiUser !== PASSWORD_RAHASIA_ADMIN) {
-            alert("Verifikasi Gagal! Password salah atau Anda bukan admin pemilik web.");
-            window.location.href = "blog.html"; // Tendang paksa kembali ke halaman utama blog
+            alert("Verifikasi Gagal!");
+            window.location.href = "blog.html";
         }
-        // ========================================================
 
+        // ========================================================
+        // 🌐 KONFIGURASI LINK URL DATABASE FIREBASE KAMU
+        // ========================================================
+        const FIREBASE_DB_URL = "https://muqtada-ifportofolio-default-rtdb.asia-southeast1.firebasedatabase.app"; 
+        // ========================================================
 
         let stepCount = 1;
 
@@ -141,53 +142,56 @@
             }
         });
 
-        // Fungsi Render List Laporan Khusus Admin beserta Tombol Hapus
-        function renderAdminList() {
+        // Ambil data & render dari Cloud Database Firebase (Rest API)
+        async function fetchCloudReports() {
             const container = document.getElementById('adminReportContainer');
-            container.innerHTML = '';
-            
-            let savedReports = localStorage.getItem('laporanPraktikum');
-            let reports = savedReports ? JSON.parse(savedReports) : [];
+            try {
+                const response = await fetch(`${FIREBASE_DB_URL}/laporanPraktikum.json`);
+                const data = await response.json();
+                
+                container.innerHTML = '';
+                if(!data) {
+                    container.innerHTML = `<div class="text-center text-muted py-5"><h5>Belum ada data laporan praktikum di server cloud.</h5></div>`;
+                    return;
+                }
 
-            if(reports.length === 0) {
-                container.innerHTML = `<div class="text-center text-muted py-5"><h5>Belum ada data laporan praktikum yang di-upload.</h5></div>`;
-                return;
-            }
-
-            reports.forEach((report, index) => {
-                const itemHTML = `
-                    <div class="col-12">
-                        <div class="p-3 border rounded bg-light d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge bg-secondary mb-1">${report.matkul}</span>
-                                <h6 class="fw-bold m-0 text-dark">${report.judul}</h6>
-                                <small class="text-muted">Dibuat pada: ${report.tanggal} • (${report.langkah.length} Sub-Materi)</small>
+                Object.keys(data).forEach((key) => {
+                    const report = data[key];
+                    const itemHTML = `
+                        <div class="col-12">
+                            <div class="p-3 border rounded bg-light d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-secondary mb-1">${report.matkul}</span>
+                                    <h6 class="fw-bold m-0 text-dark">${report.judul}</h6>
+                                    <small class="text-muted">Dibuat pada: ${report.tanggal} • (${report.langkah ? report.langkah.length : 0} Sub-Materi)</small>
+                                </div>
+                                <button class="btn btn-danger btn-sm delete-report-btn" data-key="${key}">
+                                    <i class="fas fa-trash-alt me-1"></i> Hapus
+                                </button>
                             </div>
-                            <button class="btn btn-danger btn-sm delete-report-btn" data-index="${index}">
-                                <i class="fas fa-trash-alt me-1"></i> Hapus
-                            </button>
                         </div>
-                    </div>
-                `;
-                container.insertAdjacentHTML('afterbegin', itemHTML);
-            });
+                    `;
+                    container.insertAdjacentHTML('afterbegin', itemHTML);
+                });
+            } catch (error) {
+                container.innerHTML = `<div class="text-center text-danger py-5"><h5>Gagal memuat data dari cloud database. Periksa URL Firebase kamu.</h5></div>`;
+            }
         }
 
-        // Fungsi Jalankan Aksi Hapus Laporan dari LocalStorage
-        document.getElementById('adminReportContainer').addEventListener('click', function(e) {
+        // Hapus data dari Cloud Database Firebase
+        document.getElementById('adminReportContainer').addEventListener('click', async function(e) {
             if (e.target && e.target.classList.contains('delete-report-btn')) {
-                const indexToDelete = e.target.getAttribute('data-index');
-                
-                if (confirm("Apakah kamu benar-benar yakin ingin menghapus laporan praktikum ini dari database blog publik?")) {
-                    let savedReports = JSON.parse(localStorage.getItem('laporanPraktikum'));
-                    savedReports.splice(indexToDelete, 1);
-                    localStorage.setItem('laporanPraktikum', JSON.stringify(savedReports));
-                    renderAdminList();
+                const firebaseKey = e.target.getAttribute('data-key');
+                if (confirm("Apakah kamu benar-benar yakin ingin menghapus laporan praktikum ini dari database Cloud?")) {
+                    e.target.innerText = "Menghapus...";
+                    e.target.disabled = true;
+                    await fetch(`${FIREBASE_DB_URL}/laporanPraktikum/${firebaseKey}.json`, { method: 'DELETE' });
+                    fetchCloudReports();
                 }
             }
         });
 
-        // Simpan Form Data Baru ke LocalStorage
+        // Kirim Laporan Baru ke Cloud Database Firebase
         document.getElementById('praktikumForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             if (!this.checkValidity()) {
@@ -195,6 +199,10 @@
                 this.classList.add('was-validated');
                 return;
             }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Mengunggah ke Cloud...`;
+            submitBtn.disabled = true;
 
             const readAsDataURL = (file) => {
                 return new Promise((resolve) => {
@@ -228,33 +236,39 @@
                 langkah: langkahArray
             };
 
-            let savedReports = localStorage.getItem('laporanPraktikum');
-            let reports = savedReports ? JSON.parse(savedReports) : [];
-            reports.push(newReport);
-            localStorage.setItem('laporanPraktikum', JSON.stringify(reports));
-
-            alert('Sukses! Laporan baru berhasil disimpan dan di-publish ke halaman blog.');
-            this.reset();
-            this.classList.remove('was-validated');
-            document.getElementById('dynamicStepsContainer').innerHTML = `
-                <div class="dynamic-step-item">
-                    <span class="badge bg-danger mb-2 step-number-label">Sub-Bagian 1</span>
-                    <div class="mb-2">
-                        <input type="text" class="form-control form-step-title" placeholder="Nama Sub-Materi (Misal: 1. Konfigurasi)" required>
+            try {
+                await fetch(`${FIREBASE_DB_URL}/laporanPraktikum.json`, {
+                    method: 'POST',
+                    body: JSON.stringify(newReport)
+                });
+                alert('Sukses! Laporan berhasil di-upload dan langsung terbit di Cloud Database.');
+                this.reset();
+                this.classList.remove('was-validated');
+                document.getElementById('dynamicStepsContainer').innerHTML = `
+                    <div class="dynamic-step-item">
+                        <span class="badge bg-danger mb-2 step-number-label">Sub-Bagian 1</span>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-step-title" placeholder="Nama Sub-Materi (Misal: 1. Konfigurasi)" required>
+                        </div>
+                        <div class="mb-2">
+                            <textarea class="form-control form-step-desc" rows="2" placeholder="Penjelasan..." required></textarea>
+                        </div>
+                        <div>
+                            <input type="file" class="form-control form-step-file" accept="image/*" required>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <textarea class="form-control form-step-desc" rows="2" placeholder="Penjelasan..." required></textarea>
-                    </div>
-                    <div>
-                        <input type="file" class="form-control form-step-file" accept="image/*" required>
-                    </div>
-                </div>
-            `;
-            stepCount = 1;
-            renderAdminList();
+                `;
+                stepCount = 1;
+                fetchCloudReports();
+            } catch (err) {
+                alert("Gagal mengunggah data ke cloud. Cek koneksi internet.");
+            } finally {
+                submitBtn.innerHTML = `Publish ke Cloud Database <i class="fas fa-cloud-upload-alt ms-1"></i>`;
+                submitBtn.disabled = false;
+            }
         });
 
-        document.addEventListener('DOMContentLoaded', renderAdminList);
+        document.addEventListener('DOMContentLoaded', fetchCloudReports);
     </script>
 </body>
 </html>
